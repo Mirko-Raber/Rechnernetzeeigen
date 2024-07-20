@@ -1,9 +1,22 @@
 import java.io.IOException;
 import java.net.*;
 import java.util.LinkedList;
-
+import java.util.Iterator;
+import java.util.Queue;
 
 public class TokenRing {
+
+    private static void removeNode(Queue<Token.Endpoint> ring, String ip, int port) {
+        for (Iterator<Token.Endpoint> iterator = ring.iterator(); iterator.hasNext(); ) {
+            Token.Endpoint endpoint = iterator.next();
+            if (endpoint.ip().equals(ip) && endpoint.port() == port) {
+                iterator.remove();
+                System.out.println("Node removed: " + ip + ":" + port);
+                return;
+            }
+        }
+        System.out.println("Node not found: " + ip + ":" + port);
+    }
 
     private static void loop(DatagramSocket socket, String ip, int port, boolean first){
         LinkedList<Token.Endpoint> candidates = new LinkedList<>();
@@ -33,10 +46,18 @@ public class TokenRing {
                 rc.append(next);
                 rc.incrementSequence();
                 Thread.sleep(1000);
-                rc.send(socket, next);
+                try {
+                    rc.send(socket, next);
+                } catch (IOException e) {
+                    System.out.println("Error sending packet: " + e.getMessage());
+                    removeNode(rc.getRing(), next.ip(), next.port());
+                }
             }
             catch (IOException e) {
                 System.out.println("Error receiving packet: " + e.getMessage());
+            }
+            catch (InterruptedException e) {
+                System.out.println("Thread interrupted: " + e.getMessage());
             }
             catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
@@ -71,7 +92,6 @@ public class TokenRing {
         }
         catch (IOException e) {
             System.out.println("IO error: " + e.getMessage());
-            System.out.println(e.getStackTrace());
         }
     }
 }
